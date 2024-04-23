@@ -113,10 +113,12 @@ function getUserAllRepos(string userId) returns json[]|error {
 
 }
 
+configurable string clientId = ?;
+configurable string clientSecret = ?;
+
 function authorizeToGithub(string code, string userId) returns json|error {
     http:Client github = check new ("https://github.com");
-    string clientId = "9e50af7dd2997cde127a";
-    string clientSecret = "201e65436456a06a98664c74611047bd8bdf16e5";
+
     json returnData = {};
     do {
         json response = check github->post("/login/oauth/access_token",
