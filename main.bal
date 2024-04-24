@@ -1,9 +1,5 @@
-import ballerina/crypto;
 import ballerina/http;
-import ballerina/io;
 import ballerina/sql;
-import ballerina/task;
-import ballerina/time;
 import ballerinax/mysql;
 import ballerinax/mysql.driver as _;
 
@@ -635,46 +631,3 @@ service / on httpListener {
     }
 
 }
-
-type RepositoriesJOINUser record {
-    string 'Ownername;
-    string 'Reponame;
-    string 'UserID;
-    byte[] 'GH_AccessToken;
-};
-
-class CalculateMetricsPeriodically {
-
-    *task:Job;
-
-    public function execute() {
-        time:Utc currentUtc = time:utcNow();
-        time:Utc newTime = time:utcAddSeconds(currentUtc, 86390);
-        time:Civil time = time:utcToCivil(newTime);
-
-        do {
-            task:JobId _ = check task:scheduleOneTimeJob(new CalculateMetricsPeriodically(), time);
-        } on fail var e {
-            io:println(e.message());
-        }
-        do {
-            stream<RepositoriesJOINUser, sql:Error?> resultStream = dbClient->query(`SELECT Repositories.Reponame, Repositories.Ownername, Users.GH_AccessToken, Users.UserID FROM Users INNER JOIN Repositories ON Users.UserID=Repositories.UserId;`);
-            check from RepositoriesJOINUser row in resultStream
-                do {
-                    byte[] plainText = check crypto:decryptAesCbc(row.GH_AccessToken, encryptkey, initialVector);
-                    string accessToken = check string:fromBytes(plainText);
-                    setRepositoryPerfomance(row.'Ownername, row.'Reponame, row.'UserID, accessToken);
-                };
-        } on fail error e {
-            io:println(e.message());
-        }
-
-    }
-}
-
-time:Utc currentUtc = time:utcNow();
-time:Utc newTime = time:utcAddSeconds(currentUtc, 10);
-time:Civil time = time:utcToCivil(newTime);
-
-task:JobId result = check task:scheduleOneTimeJob(new CalculateMetricsPeriodically(), time);
-
